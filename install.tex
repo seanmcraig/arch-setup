@@ -1,0 +1,596 @@
+\documentclass[letterpaper,12pt]{article}
+
+%%%%%%%%%%%%%%%%
+% DEPENDENCIES %
+%%%%%%%%%%%%%%%%
+
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage[colorlinks=true, linkcolor=cyan, urlcolor=cyan]{hyperref}
+
+%%%%%%%%%%%%%%%
+% DEFINITIONS %
+%%%%%%%%%%%%%%%
+
+%% define style for code blocks
+\lstset{basicstyle=\ttfamily, showstringspaces=false}
+
+%% change default font to sans-serif
+\renewcommand{\familydefault}{\sfdefault}
+
+%% turn off paragraph indentation
+\setlength{\parindent}{0pt}
+
+%% create shortcut commands and environments
+\newcommand{\p}{\par\bigskip}
+
+%%%%%%%%%%%%
+% METADATA %
+%%%%%%%%%%%%
+
+\title{Setting Up Arch Linux for Home Use}
+\author{Sean Craig}
+\date{Last revised: \today}
+
+%%%%%%%%%%%%%
+% BODY TEXT %
+%%%%%%%%%%%%%
+
+\begin{document}
+
+%% front matter
+\maketitle
+\tableofcontents
+
+%% license information
+\section{License information}
+Copyright (C) 2019 Sean Craig.
+Permission is granted to copy, distribute, and/or modify this document under the terms of the \href{https://www.gnu.org/copyleft/fdl.html}{GNU Free Documentation License, Version 1.3} or any later version published by the \href{https://www.fsf.org/}{Free Software Fountation}; with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+
+%% foreward
+\section{Foreword}
+The following text is a collection of things that have ``worked for me'' over the course of my time maintaing Arch Linux systems in my home. Arch has a \href{https://www.linuxinsider.com/story/85666.html}{reputation} for being a particularly technically-demanding flavor of Linux. This point is subject to debate, a debate I have no desire to participate in. It is undeniable, however, that Arch users benefit from tested code, particularly during the distribution's command-line setup process. While the ArchWiki's \href{https://wiki.archlinux.org/index.php/Installation_guide}{Installation Guide} and \href{https://wiki.archlinux.org/index.php/General_recommendations}{General Recommendations} provide sufficient resources to set up a machine, finding exactly what you need can take undue time, especially for otherwise knowledgeable users who {\em just need the code}. \p
+
+I am to provide a one-stop shop for setting up a functional Arch Linux system suitable for everyday use in the home. The instructions are intended to produce a machine capable of getting technical work done, but not to be a programmer's or system administrator's daily driver. Experienced Linux users will find a ``vanilla'' system build. My default system uses UEFI, runs Xorg rather than Wayland, typically prefers GTK applications to Qt, uses large portions of the Gnome stack (but not the Gnome desktop environment), is oriented around a small number of users, and considers that the user might want to dual-boot Arch with Windows. \p
+
+More than anything, the text aims to minimize the effort needed to prepare a system that I would want to use. It is not an educational text. I use these instructions when setting up my home machines and, as such, it is subject to my own biases. I do not apologize for them. I hope, however, that other users will find the text useful. \p
+
+The text assumes that the reader is ``Linux-literate'' and comfortable using the command line; in other words, I assume the reader possesses the skills of the typical {\em potential} Arch user. I do not assume, however, that the user has used Arch before. \p
+
+The code encluded herein is a mix of snippets from the ArchWiki, \href{https://bbs.archlinux.org/}{Arch Linux Forums}, various other websites, and my own creations. Nothing is novel or particularly clever. My contribution is, predominately, collecting the information in one place and presenting it in roughly the order it will be needed. \p
+
+Code appears in indented blocks. These instructions do not indicate whether the code is to executed as the root user. This is because we will enter commands as root only during the Arch live session. At that time we will act {\em exclusively} as root. During that session, we will set up user-level privilege escalation and authorize the our user-level profile to execute commands using {\tt sudo}. The rest of system configuration will take place in a user-level account, using {\tt sudo} where necessary. \p
+
+%% materials
+\section{Materials}
+To use these instructions, you will need the following:
+\begin{enumerate}
+  \item An {\bf internet connection}, preferably wired.
+  \item A \href{https://www.archlinux.org/download/}{\bf bootable Arch image}. I typically use a \href{https://wiki.archlinux.org/index.php/USB_flash_installation_media}{USB stick} for this. There is no need for the disk image to be particularly current. An old image will typically do just fine.
+  \item A \href{https://gparted.org/livecd.php}{\bf bootable GParted Live image}. GParted Live is a minimal Debian live distribution that includes just enough of an interface to run the GParted disk partitioning utility. While it perfectly reasonable to partition the disk(s) during the Arch live session, being able to visualize the partition table tends to result in fewer mistakes.
+  \item An hour or more of spare time.
+\end{enumerate}
+
+% Disk preparation
+\section{The GParted Live Session}
+Boot from the {\bf GParted Live} medium. GParted will launch automatically. Edit the partition table(s) on the disk(s) as needed. If you are installing Arch directly on top of another Linux distribution, simply make a note of the drive numbers ({\tt /dev/sdXY}) associated with the partitions you will be using. \p
+
+I typically use either 3 or 4 partitions for my Arch system.
+\begin{enumerate}
+  \item An EFI System Partition (``ESP''), identified as {\tt FAT32}
+  \item A Linux {\tt /} (root) parition identified as {\tt ext4}
+  \item (optional) A Linux {/home} partition, identified as {\tt ext4}
+  \item A Linux swap partition
+\end{enumerate}
+I use a separate home partition on machines that will be running {\em only} Arch Linux as a way to protect locally-stored files in the event something goes wrong. On systems running multiple operating systems (e.g., Arch and Windows), I use a separate, shared ``data'' partition, usually formatted {\tt ntfs}, that serves the same purpose. \p
+
+The ESP should be 512 MiB (about 540 MB). On a system without a separate {\tt /home} partition, the root partition should be at least 30 GiB, just to be safe. Where a separate {\tt /home} partition is used, 15 GiB will suffice for the root partition with home getting as much of the remaining space as can be spared. Swap space is a contentious issue. On modern systems, I find the maxim that swap space equals system memory to be wasteful. On systems with less than 16 GB of memory, 6-8 GB will be plenty, {\em if not planning to use hibernation}. On systems with both a solid state drive {\em and} a conventional hard disk, I always put the swap partition on the conventional drive. \p
+
+Once the disks have been prepared, reboot and remove the GParted live medium.
+
+% installation and configuration, part 1
+\section{The Arch Live Session}
+Boot from the Arch live medium. You should see a plain black-and-white boot loader with chunky text (i.e., systemd-boot). If you see a fancy boot loader with the Arch Linux logo (i.e., GRUB 2), you are booting in MBR/BIOS mode, rather than UEFI mode. While the live medium will successfully load in MBR/BIOS mode on a computer that uses UEFI, the resulting installation will not be bootable. \p
+
+{\em Note:} These instructions cover only UEFI machines, though most of the code will be applicable to both. \p
+
+
+\subsection{Connect to the Internet}
+Wired networks should connect automatically. If connecting via wifi:
+\begin{lstlisting}
+  wifi-menu
+\end{lstlisting} \p
+
+Test the connection
+\begin{lstlisting}
+  ping google.com
+\end{lstlisting}
+
+
+\subsection{Update the System Clocks}
+We will potentially do more with the system clock later, when we set the time zone. For now, just update the system clock.
+\begin{lstlisting}
+  timedatectl set-ntp true
+\end{lstlisting}
+
+
+\subsection{Format the Partitions}
+Format the partitions with the appropriate filesystem. Replace X and Y with the approprate letter and number that you identified earlier.
+\begin{lstlisting}
+  mkfs.fat -F32 /dev/sdXY
+\end{lstlisting} \p
+
+
+Format the Linux partitions as appropriate.
+\begin{lstlisting}
+  mkfs.ext4 /dev/sdXY
+\end{lstlisting} \p
+
+
+Format and initialize the swap partition.
+\begin{lstlisting}
+  mkswap /dev/sdXY
+  swapon /dev/sdXY
+\end{lstlisting}
+
+
+\subsection{Mount the File Systems}
+We need to mount the filesystems so that the files we install go to the appropriate disk partitions. \p
+
+Mount the root file system first. Make sure that X and Y reflect the root partition.
+\begin{lstlisting}
+  mount /dev/sdXY /mnt
+\end{lstlisting} \p
+
+Create mount points for any other partitions (other than swap) within the root file system. Then mount those partitions to the appropriate mount point. Mount the ESP to {\tt /boot/efi}. If you have no {\tt /home} partition, skip the corresponding lines.  Do {\bf not} try to mount the swap partition.
+\begin{lstlisting}
+  mkdir /mnt/boot
+  mkdir /mnt/boot/efi
+  mkdir /mnt/home
+  mount /dev/sdXY /mnt/boot/efi
+  mount /dev/sdXY /mnt/home
+\end{lstlisting}
+
+
+\subsection{Install core packages}
+In this section, we will download and install a minimal Arch system onto the mounted filesystem. \p
+
+Make sure the installation medium PGP keys are up to date.
+\begin{lstlisting}
+  pacman -Sy archlinux-keyring
+  pacman-key --populate archlinux
+\end{lstlisting} \p
+
+Install the base group. Other packages can be installed at this time, but I find it more convenient to save this for after we change root into the new system. This makes it a little easier to track what is going on if things go wrong, since there is a limit on the number of screens you can page-up in a true interface like this one.
+\begin{lstlisting}
+  pacstrap /mnt base
+\end{lstlisting}
+
+\subsection{Create a File System Table}
+Generate the file system table (fstab) for the new file system, defining partitions by UUIDs.
+\begin{lstlisting}
+  genfstab -U /mnt >> /mnt/etc/fstab
+\end{lstlisting}
+
+\subsection{Chroot into {\tt /mnt}}
+Change root into the new file system.
+\begin{lstlisting}
+  arch-chroot /mnt
+\end{lstlisting}
+
+\subsection{Configure System Time}
+Set the time zone with a symbolic link. For U.S. Eastern Time, use:
+\begin{lstlisting}
+  ln -sf /usr/share/zoneinfo/America/New_York \
+  /etc/localtime
+\end{lstlisting} \p
+For other time zones, replace the region ({\tt America}) and zone ({\tt New\_York}) with the appropriate values. \par
+
+To see a list of regions and zones (replace REGION with your desired region):
+\begin{lstlisting}
+  ls /usr/share/zoneinfo
+  ls /usr/share/zoneinfo/REGION
+\end{lstlisting} \p
+
+If dual-booting with Windows or Ubuntu, set the hardware clock to use local time rather than UTC. This will prevent a situation where one OS always has the incorrect time.
+\begin{lstlisting}
+  timedatectl set-local-rtc 1
+\end{lstlisting} \p
+
+Generate {\tt /etc/adjtime}
+\begin{lstlisting}
+  hwclock --systohc
+\end{lstlisting}
+
+
+\subsection{Localization}
+Open {\tt /etc/locale.gen} and uncomment ``{\tt en\_US.UTF-8 UTF-8}'' for the standard, American locale, and any other desired locales.
+\begin{lstlisting}
+  nano /etc/locale.gen
+\end{lstlisting} \p
+
+Alternatively, simply append the line for the appropriate locale to the end of the file.
+\begin{lstlisting}
+  cat en_US.UTF-8 UTF-8 >> /etc/locale.gen
+\end{lstlisting} \p
+
+Generate the specified locales.
+\begin{lstlisting}
+  locale-gen
+\end{lstlisting} \p
+
+Define the corresponding language variable. For our default, American locale:
+\begin{lstlisting}
+  cat LANG=en_US.UTF-8 >> /etc/locale.conf
+\end{lstlisting}
+
+
+\subsection{Network Configuration}
+Set the host name, replacing MYHOSTNAME as desired.
+\begin{lstlisting}
+cat MYHOSTNAME >> /etc/hostname
+\end{lstlisting} \p
+
+Write the {\tt /etc/hosts} file. I do this line by line, but one can also use {\tt nano}
+\begin{lstlisting}
+  cat 127.0.0.1 localhost >> /etc/hosts
+  cat ::1 localhost >> /etc/hosts
+  cat 127.0.1.1 MYHOSTNAME.localdomain MYHOSTNAME \
+  >> /etc/hosts
+\end{lstlisting}
+
+
+\subsection{Users and Privileges}
+Set the root password.
+\begin{lstlisting}
+  passwd
+\end{lstlisting} \p
+
+After we reboot, we will do all additional configuration as a normal user with access root privileges when we want them. To get there, we need to create a user profile, set up privilege escalation, and authorize the user profile to escalate. \p
+
+Create a new user, replacing MYUSERNAME as desired. I usually place this user in the {\tt wheel} group to more easily grant it privileges later. Repeat for each administrator user. Omit ``{\tt -G wheel}'' for any user who you wish to refuse these privileges, such as a young child or a person prone to breaking things.
+\begin{lstlisting}
+  useradd -m -G wheel -s /bin/bash MYUSERNAME
+\end{lstlisting} \p
+
+Set passwords for the new user(s)
+\begin{lstlisting}
+  passwd MYUSERNAME
+\end{lstlisting}
+
+Install the {\tt base-devel} group to access privilege escalation via {\tt sudo}, among other things. Installing {\tt base-devel} now, instead of just {\tt sudo} will save time later because the group also includes (almost) everything we need to build packages from source code.
+\begin{lstlisting}
+  pacman -Sy base-devel
+\end{lstlisting} \p
+
+Open the {\tt visudo} file in a text editor to set which users can use {\tt sudo}. Since we have defined our administrator user(s) as belonging to the {\tt wheel} group, uncomment one of the lines allowing members of that group to execute any command. On single-user machines that do not travel, such as a desktop computer, I normally choose the option that omits the need for a password.
+\begin{lstlisting}
+  EDITOR=nano visudo
+\end{lstlisting}
+
+
+\subsection{Boot Loader}
+Download the GRUB boot loader and auxiliary packages for working with UEFI.
+\begin{lstlisting}
+  pacman -Sy grub efibootmgr
+\end{lstlisting} \p
+
+If dual-booting, install {\tt os-prober}. If dual-booting with Windows, install the package for working with Microsoft filesystems.
+\begin{lstlisting}
+  pacman -Sy os-prober
+  pacman -Sy ntfs-3g
+\end{lstlisting} \p
+
+Finally, if the system has an Intel CPU, install microcode updates.
+\begin{lstlisting}
+  pacman -Sy intel-ucode.
+\end{lstlisting} \p
+
+Install GRUB to the system.
+\begin{lstlisting}
+  grub-install --target=x86_64-efi --efi-directory=/boot/efi \
+  --bootloader-id=GRUB
+\end{lstlisting} \p
+
+Initialize the GRUB configuration file.
+\begin{lstlisting}[language=bash]
+  grub-mkconfig -o /boot/grub/grub.cfg
+\end{lstlisting} \p
+
+If dual-booting, hopefully GRUB will automatically recognize the other OS's.
+
+\subsection{Additional Packages}
+Install Git to enable use of the Arch User Repository on reboot.
+\begin{lstlisting}[language=bash]
+  pacman -Sy git
+\end{lstlisting} \p
+
+If using wifi, install command-line tools
+\begin{lstlisting}[language=bash]
+  pacman -Sy iw wireless_tools wpa_supplicant dialog
+\end{lstlisting} \p
+
+\subsection{Reboot}
+Exit the {\tt chroot} session and reboot the computer. Be sure to remove the installation medium.
+\begin{lstlisting}[language=bash]
+  exit
+  reboot
+\end{lstlisting}
+
+
+% after the first reboot
+\section{Booting for the First Time}
+After the system restarts, GRUB should boot into an Arch session. Log in using your {\bf username} and password. We want to be a non-root user to install packages from the user repository safely. We'll use {\tt sudo} to become root as needed.
+
+\subsection{Connect to the Internet}
+If connecting wireless, run {\tt wifi-menu}
+\begin{lstlisting}[language=bash]
+  sudo wifi-menu
+\end{lstlisting} \p
+
+Verify the connection.
+\begin{lstlisting}[language=bash]
+  ping google.com
+\end{lstlisting} \p
+
+If using a wired connection and there is no connection, the most likely issue is an inactive {\tt dhcpcd}.
+\begin{lstlisting}[language=bash]
+  sudo systemctl enable dhcpcd.service
+  sudo systemctl start dhcpcd.service
+\end{lstlisting} \p
+
+Wait about 30 seconds, then attempt to ping again.
+
+\subsection{Install an AUR Helper}
+We will install a package from the Arch User Repository (AUR) manually exactly once. This package is a program that will act as a package manager for the AUR in the same way that pacman acts as a package manager for the main repository. Whether manually or with a helper, we must execute the commands as a normal user. \p
+
+First, clone the source for {\tt pakku}, my favorite AUR helper.
+\begin{lstlisting}[language=bash]
+  git clone https://aur.archlinux.org/pakku.git
+\end{lstlisting} \p
+
+Change into the cloned directory.
+\begin{lstlisting}[language=bash]
+  cd pakku
+\end{lstlisting} \p
+
+Compile and install the package from the PKGBUILD
+\begin{lstlisting}[language=bash]
+  makepkg -sic
+\end{lstlisting} \p
+
+Change back to the parent directory and delete the cloned source code.
+\begin{lstlisting}[language=bash]
+  cd ..
+  rm -Rf pakku
+\end{lstlisting}
+
+
+\subsection{The Display Server}
+Install the Xorg display server.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy xorg
+\end{lstlisting} \p
+
+Install the appropriate graphics drivers. If using an Nvidia graphics card, this should be:
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy xf86-video-nouveau mesa
+\end{lstlisting} \p
+
+If you would rather use the proprietary driver, instead use:
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy nvidia nvidia-utils
+\end{lstlisting} \p
+
+If, instead, the computer has integrated Intel graphics, use:
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy xf86-video-intel mesa
+\end{lstlisting}
+
+
+\subsection{Install the Desktop Environment}
+The appropriate instructions will vary somehwta depending on the environment you choose. I like Budgie because it is simple, familiar, and reasonably snappy.
+\begin{lstlisting}
+  sudo pacman -Sy budgie-desktop budgie-extras
+\end{lstlisting} \p
+
+Also install packages for GUI network management, especially if connecting wirelessly.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy networkmanager network-manager-applet
+\end{lstlisting} \p
+
+Install other optional dependencies.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy gnome-backgrounds gnome-control-center \
+  gnome-screensaver 
+\end{lstlisting} \p
+
+Finally, install a terminal emulator (and possibly) a web browser). Other major applications, like and office suite or media player, can wait until after we boot into the GUI environment. Without a terminal emulator, we will not be able to install other programs. I like Tilix.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy tilix
+\end{lstlisting} \p
+
+If installing a web browser, install the package for Adobe Flash at the same time. I always forget otherwise. If using Chromium, the package is {\tt pepper-flash}. Since I use Firefox, I use the following:
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy firefox flashplugin
+\end{lstlisting}
+
+
+\subsection{The Display Manager}
+The Display Manager controls logging in to the GUI environment. With Budgie, I prefer LightDM.
+\begin{lstlisting}
+  sudo pacman -Sy lightdm
+\end{lstlisting} -p
+
+LightDM requires a separate ``greeter'' package. I prefer this one.
+\begin{lstlisting}
+  sudo pacman -Sy lightdm-webkit2-greeter
+\end{lstlisting} \p
+
+Enable LightDM so it starts at boot.
+\begin{lstlisting}[language=bash]
+  sudo systemctl enable lightdm.service
+\end{lstlisting} \p
+
+By default, LightDM wants to use the GTK greeter. We didn't install that, so we have to specify a different one. Open the general LightDM configuration file.
+\begin{lstlisting}[language=bash]
+  sudo nano /etc/lightdm/lightdm.conf
+\end{lstlisting} \p
+
+Change the {\tt [Seat:*]} section of this file to read:
+\begin{lstlisting}[language=bash]
+  [Seat:*]
+  ...
+  greeter-session=lightdm-webkit2-greeter
+\end{lstlisting}
+
+
+\subsection{Install Essential Applications}
+Create the standard user directories.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy xdg-user-dirs-gtk
+\end{lstlisting} \p
+
+Install a web broswer and flash plugin if you did not do so earlier. I use Firefox.
+\begin{lstlisting}
+  sudo pacman -Sy firefox flashplugin
+\end{lstlisting} \p
+
+Install a graphical file manager. {\tt nautilus} integrates well with Budgie.
+\begin{lstlisting}
+  sudo pacman -Sy nautilus
+\end{lstlisting}
+
+Install an assortment of basic fonts.
+\begin{lstlisting}[language=bash]
+  sudo pacman -Sy ttf-liberation ttf-dejavu ttf-roboto
+\end{lstlisting}
+
+
+\subsection{Reboot}
+Reboot the system.
+\begin{lstlisting}[language=bash]
+  reboot
+\end{lstlisting}
+
+
+\section{Configuring Applications}
+
+In this section, I include specific instructions for setting up and/or configuring various applications. I also include a list of recommended software packages, with descriptions. By the end of this section, you should have a polished, fully-functioned system. \p
+
+{\bf UNDER CONSTRUCTION}
+
+
+\end{document}
+
+\newpage
+\appendix
+\section{Recommended applications}
+This section lists the applications that I typically install, as well as related packages that make them work.
+%
+\subsection*{Selections from the Gnome stack}
+\begin{lstlisting}[language=bash]
+  alacarte
+  baobab
+  cheese
+  eog
+  evince
+  evolution
+  file-roller unrar p7zip
+  gedit
+  gnome-calculator
+  gnome-keyring
+  gnome-logs
+  gnome-podcasts
+  gnome-screenshot
+  gnome-system-monitor
+  nautilus nautilus-sendto nautilus-terminal
+  simple-scan
+  tracker
+\end{lstlisting}
+%
+\subsection*{Other applications from the main repostories}
+\begin{lstlisting}[language=bash]
+  audacity
+  archey3
+  bashrun
+  bluez bluez-utils # enable bluetooth.service
+  calibre
+  catfish
+  chromium pepper-flash
+  cups # enable org.cups.cupsd.service
+  curl
+  deluge
+  firefox flash-plugin
+  gimp
+  geogebra
+  gparted
+  handbrake
+  jre8-openjdk
+  libreoffice-fresh
+    hunspell hunspell-en_US
+    hyphen hyphen-en
+    libmythes mythes-en 
+    languagetool
+  lshw
+  milkytracker
+  obs-studio
+  openshot
+  pandoc
+  python python-matplotlib python-numpy python-pandas
+  r
+  rsync
+  samba
+  sane
+  ssh
+  texlive-core texlive-bibtexextra
+  vlc
+  wget
+  youtube-dl
+\end{lstlisting}
+%
+\subsection*{Packages from the AUR}
+\begin{lstlisting}[language=bash]
+  dropbox nautilus-dropbox
+  etcher
+  google-drive-ocamlfuse
+  jabref
+  rstudio-desktop-bin
+  skypeforlinux-stable-bin
+  slack-desktop
+  spotify
+\end{lstlisting}
+
+\newpage
+\section{Sample configuration files}
+%%%
+\subsection*{.bashrc}
+\begin{lstlisting}[language=bash]
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+PS1='[\u@\h \W]\$
+
+if [ $TILID_ID ] || [ $VTE_VERSION ]; then
+  source /etc/profile.d/vte.sh
+fi
+\end{lstlisting}
+%$$
+\subsection*{.mystartup.sh}
+This file to be set to run on system startup.
+\begin{lstlisting}[language=bash]
+#!/bin/bash
+sleep 5; google-drive-ocamlfuse ~/GDrive
+\end{lstlisting}
+%%%
+\subsection*{.myshutdown.sh}
+This file to be set to run on system shutdown.
+\begin{lstlisting}[language=bash]
+#!/usr/bin/bash
+su sean -l -c "fusermount -u ~/GDrive"
+\end{lstlisting}
+%%%
+
+
+
+\end{document}
