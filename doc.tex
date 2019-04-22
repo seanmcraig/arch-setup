@@ -211,7 +211,7 @@ Open {\tt /etc/locale.gen} and uncomment ``{\tt en\_US.UTF-8 UTF-8}'' for the st
 
 Alternatively, simply append the line for the appropriate locale to the end of the file.
 \begin{lstlisting}
-  cat en_US.UTF-8 UTF-8 >> /etc/locale.gen
+  echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 \end{lstlisting} \p
 
 Generate the specified locales.
@@ -221,21 +221,21 @@ Generate the specified locales.
 
 Define the corresponding language variable. For our default, American locale:
 \begin{lstlisting}
-  cat LANG=en_US.UTF-8 >> /etc/locale.conf
+  echo "LANG=en_US.UTF-8" >> /etc/locale.conf
 \end{lstlisting}
 
 
 \subsection{Network Configuration}
 Set the host name, replacing MYHOSTNAME as desired.
 \begin{lstlisting}
-cat MYHOSTNAME >> /etc/hostname
+echo "MYHOSTNAME" >> /etc/hostname
 \end{lstlisting} \p
 
 Write the {\tt /etc/hosts} file. I do this line by line, but one can also use {\tt nano}
 \begin{lstlisting}
-  cat 127.0.0.1 localhost >> /etc/hosts
-  cat ::1 localhost >> /etc/hosts
-  cat 127.0.1.1 MYHOSTNAME.localdomain MYHOSTNAME \
+  echo "127.0.0.1 localhost" >> /etc/hosts
+  echo "::1 localhost" >> /etc/hosts
+  echo "127.0.1.1 MYHOSTNAME.localdomain MYHOSTNAME" \
   >> /etc/hosts
 \end{lstlisting}
 
